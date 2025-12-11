@@ -1,0 +1,42 @@
+# Configuration (personal)
+config.yml
+
+# reMarkable files
+*.rmdoc
+*.rm
+*.pdf
+*.metadata
+*.content
+*.pagedata
+
+# Temporary and backup directories
+*/
+!.git/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
