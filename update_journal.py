@@ -354,31 +354,27 @@ def main():
 
         print(f"Document UUID: {doc_uuid}")
 
-        # Check if using a base PDF template
+        # Base PDF template is required
         base_pdf_template = config.get('base_pdf_template')
-        if base_pdf_template:
-            print(f"Using base PDF template: {base_pdf_template}")
-            template_path = Path(__file__).parent / base_pdf_template
-            if not template_path.exists():
-                print(f"Error: Base PDF template not found: {template_path}")
-                sys.exit(1)
+        if not base_pdf_template:
+            print("Error: base_pdf_template is required in config.yml")
+            print("Please specify the path to your base PDF template.")
+            sys.exit(1)
 
-            # Use template instead of downloaded PDF
-            original_pdf = template_path
-            modified_pdf = extract_dir / f"{doc_uuid}_modified.pdf"
-            add_recurring_items_to_pdf(original_pdf, modified_pdf, recurring_items_spans, config)
+        print(f"Using base PDF template: {base_pdf_template}")
+        template_path = Path(__file__).parent / base_pdf_template
+        if not template_path.exists():
+            print(f"Error: Base PDF template not found: {template_path}")
+            sys.exit(1)
 
-            # Replace extracted PDF with modified template
-            final_pdf = extract_dir / f"{doc_uuid}.pdf"
-            modified_pdf.replace(final_pdf)
-        else:
-            # Modify the PDF from reMarkable
-            original_pdf = extract_dir / f"{doc_uuid}.pdf"
-            modified_pdf = extract_dir / f"{doc_uuid}_modified.pdf"
-            add_recurring_items_to_pdf(original_pdf, modified_pdf, recurring_items_spans, config)
+        # Use template instead of downloaded PDF
+        original_pdf = template_path
+        modified_pdf = extract_dir / f"{doc_uuid}_modified.pdf"
+        add_recurring_items_to_pdf(original_pdf, modified_pdf, recurring_items_spans, config)
 
-            # Replace original PDF with modified
-            modified_pdf.replace(original_pdf)
+        # Replace extracted PDF with modified template
+        final_pdf = extract_dir / f"{doc_uuid}.pdf"
+        modified_pdf.replace(final_pdf)
 
         # Generate new UUID for upload (to avoid conflicts)
         new_uuid = str(uuid.uuid4())

@@ -3,6 +3,10 @@
 # Name of your source journal on reMarkable
 source_journal: "Bullet_Journal_2025"
 
+# REQUIRED: Path to base PDF template file
+# This is the original PDF template that will be modified with recurring items
+base_pdf_template: "Bullet_Journal_original.pdf"
+
 # List of recurring item spans
 # Each span has a starts_on date and a list of items to add from that date forward
 recurring_items_spans:
@@ -25,8 +29,3 @@ date_pages_year: 2025  # Year that the date pages cover
 font_size: 36          # Size of text
 y_position: 0.82       # Vertical position (0.0 = bottom, 1.0 = top)
 add_divider: true      # Draw vertical line down middle of page
-
-# Optional: Use a local PDF template instead of the PDF from reMarkable
-# If specified, only annotations (.rm files) are taken from reMarkable download
-# Uncomment the line below to use a base PDF template:
-# base_pdf_template: "Bullet_Journal_original.pdf"

@@ -2,16 +2,17 @@
 
 Fulfills an extremely niche use case. You have a Remarkable notebook that uses
 the Bullet Journal template. You want to have recurring items that you don't
-want to have to enter by hand every day. This script: 
+want to have to enter by hand every day. This script:
  - downloads your current bullet journal notebook
- - saves off the underlying pdf template to use as a base (NB: this isn't actually done yet, I have that pdf lying around)
- - adds a right-hand column with the recurring items specified  . 
- - creates a backup in Remarkable of the current bullet journal notebook, then deletes it
+ - uses a local PDF template as the base (which you extract from your own journal)
+ - adds a right-hand column with the recurring items specified
+ - creates a backup in Remarkable of the current bullet journal notebook
  - uploads a new notebook with the recurring items
 
-Obviously, use at your own risk. Please be careful with your notebooks. Probably make a copy manually before trying anything.
-
-All of this code written by Claude Code, including the rest of this README.
+**Important Notes:**
+- Use at your own risk. Make manual backups of your notebooks before trying.
+- You must provide your own PDF template extracted from your journal (the underlying Bullet Journal PDF template is copyrighted and cannot be included in this repository).
+- All code written by Claude Code, including this README.
 
 ## Requirements
 
@@ -40,7 +41,29 @@ All of this code written by Claude Code, including the rest of this README.
    ```
    Follow the prompts to authenticate with your reMarkable account.
 
-4. **Set up configuration**:
+4. **Extract your base PDF template**:
+
+   You need to get the original PDF template from your existing Bullet Journal. This preserves all the links and navigation elements.
+
+   ```bash
+   # Download your existing journal
+   rmapi get "Bullet_Journal_2025"
+
+   # Extract the .rmdoc file (it's a ZIP archive)
+   unzip Bullet_Journal_2025.rmdoc
+
+   # Find and copy the PDF file (named with a UUID)
+   # Look for a file like: a98d24c6-5250-44e1-8707-bc1e949968c4.pdf
+   cp *.pdf Bullet_Journal_original.pdf
+
+   # Clean up
+   rm -rf Bullet_Journal_2025.rmdoc
+   rm -rf a98d24c6-5250-44e1-8707-bc1e949968c4*  # Use the actual UUID from your file
+   ```
+
+   This `Bullet_Journal_original.pdf` file becomes your template. The script will use this as the base and only download your handwritten annotations from reMarkable.
+
+5. **Set up configuration**:
    ```bash
    cp config.yml.template config.yml
    ```
@@ -54,7 +77,8 @@ Edit `config.yml` to customize your setup:
 # Name of your source journal on reMarkable
 source_journal: "Bullet_Journal_2025"
 
-# Optional: Use a local PDF template instead of downloading from reMarkable
+# REQUIRED: Path to base PDF template file
+# Extract this from your existing journal (see Installation step 4)
 base_pdf_template: "Bullet_Journal_original.pdf"
 
 # List of recurring item spans
@@ -82,7 +106,7 @@ add_divider: true      # Draw vertical line down middle of page
 ### Configuration Options
 
 - **source_journal**: Name of your journal file on reMarkable
-- **base_pdf_template**: (Optional) Local PDF file to use as template. If specified, only annotations are downloaded from reMarkable
+- **base_pdf_template**: **(REQUIRED)** Local PDF file to use as template. Extract this from your existing journal using the instructions in Installation step 4. Only your handwritten annotations (`.rm` files) are downloaded from reMarkable; the PDF template is taken from this local file.
 - **recurring_items_spans**: List of item sets with start dates
   - **starts_on**: Date in YYYY-MM-DD format when these items should begin appearing
   - **items**: List of tasks to add from that date through the end of the year
