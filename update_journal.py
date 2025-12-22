@@ -8,7 +8,7 @@ import yaml
 import subprocess
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import tempfile
 import shutil
@@ -195,24 +195,45 @@ def add_recurring_items_to_pdf(pdf_path, output_path, recurring_items_spans, con
     print(f"Date pages: {date_pages_start}-{date_pages_end} (year {date_pages_year}, {days_in_year} days)")
 
     # Parse recurring item spans and convert dates to page numbers
+    # Sort spans by date to process them chronologically
+    sorted_spans = sorted(
+        [s for s in recurring_items_spans if datetime.strptime(s['starts_on'], '%Y-%m-%d').year == date_pages_year],
+        key=lambda s: datetime.strptime(s['starts_on'], '%Y-%m-%d')
+    )
+
     page_items_map = {}  # Map of page_num -> list of items for that page
 
-    for span in recurring_items_spans:
+    # Day of week mapping
+    day_names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+    for span in sorted_spans:
         starts_on = datetime.strptime(span['starts_on'], '%Y-%m-%d')
-        items = span['items']
+        items = span.get('items', [])
+        day_of_week_items = span.get('day_of_week', {})
 
-        # Calculate which page this date corresponds to
-        if starts_on.year == date_pages_year:
-            day_of_year = starts_on.timetuple().tm_yday
-            span_start_page = date_pages_start + day_of_year - 1
+        day_of_year = starts_on.timetuple().tm_yday
+        span_start_page = date_pages_start + day_of_year - 1
 
-            print(f"Span starting {starts_on.strftime('%Y-%m-%d')} (page {span_start_page}): {items}")
+        print(f"Span starting {starts_on.strftime('%Y-%m-%d')} (page {span_start_page}): {items}")
+        if day_of_week_items:
+            print(f"  Day-of-week items: {day_of_week_items}")
 
-            # Add these items to all pages from span_start_page to end
-            for page_num in range(span_start_page, date_pages_end + 1):
-                if page_num not in page_items_map:
-                    page_items_map[page_num] = []
-                page_items_map[page_num].extend(items)
+        # Replace items on all pages from span_start_page to end
+        for page_num in range(span_start_page, date_pages_end + 1):
+            # Start with base items
+            page_items = items.copy()
+
+            # Calculate the date for this page
+            days_from_start = page_num - date_pages_start
+            page_date = datetime(date_pages_year, 1, 1) + timedelta(days=days_from_start)
+
+            # Add day-of-week items if applicable
+            # weekday() returns 0=Monday, 1=Tuesday, etc.
+            weekday_name = day_names[page_date.weekday()]
+            if weekday_name in day_of_week_items:
+                page_items.extend(day_of_week_items[weekday_name])
+
+            page_items_map[page_num] = page_items
 
     # Open PDF with pikepdf
     pdf = pikepdf.Pdf.open(pdf_path)

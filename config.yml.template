@@ -9,16 +9,18 @@ base_pdf_template: "Bullet_Journal_original.pdf"
 
 # List of recurring item spans
 # Each span has a starts_on date and a list of items to add from that date forward
+# You can also specify day_of_week items that only appear on specific days
 recurring_items_spans:
-  - starts_on: "2024-12-10"
+  - starts_on: "2025-01-01"
     items:
       - "Brush teeth"
       - "Meditate"
       - "Take pills"
-  - starts_on: "2024-12-11"
-    items:
-      - "Check email"
-      - "Review calendar"
+    day_of_week:
+      monday:
+        - "Put out compost"
+      friday:
+        - "Weekly review"
 
 # Date page configuration
 # The script will automatically calculate which pages are date pages based on the year

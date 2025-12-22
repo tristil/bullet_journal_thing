@@ -83,15 +83,17 @@ base_pdf_template: "Bullet_Journal_original.pdf"
 
 # List of recurring item spans
 # Each span has a starts_on date and a list of items to add from that date forward
+# You can also specify day_of_week items that only appear on specific days
 recurring_items_spans:
   - starts_on: "2025-01-01"
     items:
       - "Take vitamins"
       - "Meditate"
-  - starts_on: "2025-02-01"
-    items:
-      - "Check email"
-      - "Review calendar"
+    day_of_week:
+      monday:
+        - "Put out compost"
+      friday:
+        - "Weekly review"
 
 # Date page configuration
 date_pages_start: 144  # Page where date pages (one per day) start
@@ -110,6 +112,9 @@ add_divider: true      # Draw vertical line down middle of page
 - **recurring_items_spans**: List of item sets with start dates
   - **starts_on**: Date in YYYY-MM-DD format when these items should begin appearing
   - **items**: List of tasks to add from that date through the end of the year
+  - **day_of_week**: (Optional) Dictionary of day-specific items that only appear on certain days of the week
+    - Supported days: `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, `sunday`
+    - Day-of-week items are added after the regular items for that day
 - **date_pages_start**: First page number that contains daily pages
 - **date_pages_year**: Year that the date pages represent
 - **font_size**: Size of the task text
@@ -174,8 +179,32 @@ Uploading new version as 'Bullet_Journal_2025'...
 
 Items are added based on date spans. When you specify a `starts_on` date:
 - Items from that span will appear on all pages from that date through December 31st
-- Multiple spans can be defined, and items accumulate
+- Multiple spans can be defined, and each span replaces the previous one
 - Only dates matching `date_pages_year` are processed
+
+### Day-of-Week Items
+
+You can specify items that only appear on certain days of the week:
+- Add a `day_of_week` section to any span
+- Specify items for specific days: `monday`, `tuesday`, etc.
+- Day-of-week items are added **after** the regular daily items
+- These items will appear on every matching day from the span's `starts_on` date forward
+
+**Example:** If you want "Put out compost" to appear only on Mondays starting from January 1st:
+```yaml
+recurring_items_spans:
+  - starts_on: "2025-01-01"
+    items:
+      - "Daily task 1"
+      - "Daily task 2"
+    day_of_week:
+      monday:
+        - "Put out compost"
+```
+
+Result:
+- **Every day**: "Daily task 1", "Daily task 2"
+- **Mondays only**: "Daily task 1", "Daily task 2", "Put out compost"
 
 **Example**: With these spans:
 ```yaml
