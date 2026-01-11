@@ -174,6 +174,33 @@ def extract_rmdoc(rmdoc_path, extract_dir):
     doc_uuid = pdf_files[0].stem
     return doc_uuid
 
+def create_metadata_files(extract_dir, doc_uuid):
+    """Create minimal metadata files required for .rmdoc"""
+    import json
+
+    # Create .content file (metadata about the document)
+    content_data = {
+        "extraMetadata": {},
+        "fileType": "pdf",
+        "lastOpenedPage": 0,
+        "lineHeight": -1,
+        "margins": 180,
+        "orientation": "portrait",
+        "pageCount": 0,
+        "pages": []
+    }
+
+    content_path = extract_dir / f"{doc_uuid}.content"
+    with open(content_path, 'w') as f:
+        json.dump(content_data, f)
+
+    # Create .pagedata file (empty array for PDF)
+    pagedata_path = extract_dir / f"{doc_uuid}.pagedata"
+    with open(pagedata_path, 'w') as f:
+        f.write("[]")
+
+    print(f"Created metadata files for {doc_uuid}")
+
 def add_recurring_items_to_pdf(pdf_path, output_path, recurring_items_spans, config):
     """Add recurring items to PDF using overlay with pikepdf to preserve links"""
     import pikepdf
@@ -392,6 +419,9 @@ def main():
             extract_dir = Path(temp_dir) / 'extracted'
             extract_dir.mkdir()
             doc_uuid = str(uuid.uuid4())
+
+            # Create metadata files for the new journal
+            create_metadata_files(extract_dir, doc_uuid)
 
             print(f"Document UUID: {doc_uuid}")
             print()
