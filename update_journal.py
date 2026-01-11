@@ -65,6 +65,11 @@ def get_backup_name():
             return candidate
         increment += 1
 
+def journal_exists(journal_name):
+    """Check if a journal exists on the reMarkable"""
+    output = run_command('rmapi ls')
+    return journal_name in output
+
 def backup_journal(source_name, temp_dir):
     """Create a backup of the source journal"""
     ensure_backup_folder()
@@ -356,24 +361,40 @@ def main():
 
     # Create temp directory for work
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create backup (downloads to temp_dir)
-        backup_name = backup_journal(source_name, temp_dir)
-        print()
+        # Check if source journal exists
+        source_exists = journal_exists(source_name)
 
-        # The backup function already downloaded the journal
-        # Find it in temp_dir
-        rmdoc_files = list(Path(temp_dir).glob('*.rmdoc'))
-        if not rmdoc_files:
-            print("Error: No .rmdoc file found after backup")
-            sys.exit(1)
-        rmdoc_path = rmdoc_files[0]
+        if source_exists:
+            # Create backup (downloads to temp_dir)
+            backup_name = backup_journal(source_name, temp_dir)
+            print()
 
-        # Extract
-        extract_dir = Path(temp_dir) / 'extracted'
-        extract_dir.mkdir()
-        doc_uuid = extract_rmdoc(rmdoc_path, extract_dir)
+            # The backup function already downloaded the journal
+            # Find it in temp_dir
+            rmdoc_files = list(Path(temp_dir).glob('*.rmdoc'))
+            if not rmdoc_files:
+                print("Error: No .rmdoc file found after backup")
+                sys.exit(1)
+            rmdoc_path = rmdoc_files[0]
 
-        print(f"Document UUID: {doc_uuid}")
+            # Extract
+            extract_dir = Path(temp_dir) / 'extracted'
+            extract_dir.mkdir()
+            doc_uuid = extract_rmdoc(rmdoc_path, extract_dir)
+
+            print(f"Document UUID: {doc_uuid}")
+        else:
+            # First time - no backup needed, create fresh journal
+            print(f"Source journal '{source_name}' not found - creating new journal from template")
+            backup_name = None
+
+            # Create extract dir and generate a new UUID
+            extract_dir = Path(temp_dir) / 'extracted'
+            extract_dir.mkdir()
+            doc_uuid = str(uuid.uuid4())
+
+            print(f"Document UUID: {doc_uuid}")
+            print()
 
         # Base PDF template is required
         base_pdf_template = config.get('base_pdf_template')
@@ -421,9 +442,13 @@ def main():
     print()
     print("=" * 60)
     print("✓ Journal updated successfully!")
-    print(f"✓ Source: {source_name}")
-    print(f"✓ Updated: {target_name}")
-    print(f"✓ Backup saved as: Bullet Journal Backups/{backup_name}")
+    if backup_name:
+        print(f"✓ Source: {source_name}")
+        print(f"✓ Updated: {target_name}")
+        print(f"✓ Backup saved as: {backup_name}")
+    else:
+        print(f"✓ Created new journal: {target_name}")
+        print("✓ (No backup created - this was the first run)")
     print("=" * 60)
 
 if __name__ == '__main__':
