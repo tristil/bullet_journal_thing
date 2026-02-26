@@ -211,17 +211,20 @@ def add_recurring_items_to_pdf(pdf_path, output_path, recurring_items_spans, con
     from io import BytesIO
     from datetime import datetime
 
-    # Extract EB Garamond from the template PDF at runtime and register with reportlab
-    _template_pdf = pikepdf.Pdf.open(pdf_path)
-    _font_ref = _template_pdf.pages[0]['/Resources']['/Font']
-    for _name, _fref in _font_ref.items():
-        _f = _template_pdf.get_object(_fref.objgen) if hasattr(_fref, 'objgen') else _fref
-        if 'Garamond-Regular' in str(_f.get('/BaseFont', '')) and '/FontDescriptor' in _f:
-            _desc = _template_pdf.get_object(_f['/FontDescriptor'].objgen)
-            _font_bytes = BytesIO(bytes(_template_pdf.get_object(_desc['/FontFile2'].objgen).read_bytes()))
-            pdfmetrics.registerFont(TTFont('EBGaramond', _font_bytes))
-            break
-    _template_pdf.close()
+    # Extract EB Garamond from the template PDF and register with reportlab (once)
+    try:
+        pdfmetrics.getFont('EBGaramond')
+    except KeyError:
+        _template_pdf = pikepdf.Pdf.open(pdf_path)
+        _font_ref = _template_pdf.pages[0]['/Resources']['/Font']
+        for _name, _fref in _font_ref.items():
+            _f = _template_pdf.get_object(_fref.objgen) if hasattr(_fref, 'objgen') else _fref
+            if 'Garamond-Regular' in str(_f.get('/BaseFont', '')) and '/FontDescriptor' in _f:
+                _desc = _template_pdf.get_object(_f['/FontDescriptor'].objgen)
+                _font_bytes = BytesIO(bytes(_template_pdf.get_object(_desc['/FontFile2'].objgen).read_bytes()))
+                pdfmetrics.registerFont(TTFont('EBGaramond', _font_bytes))
+                break
+        _template_pdf.close()
 
     # Get configuration
     font_size = config.get('font_size', 36)
