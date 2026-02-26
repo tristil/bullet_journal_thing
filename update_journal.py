@@ -4,6 +4,7 @@ Bullet Journal Updater for reMarkable
 Backs up and updates your journal with recurring items
 """
 
+import argparse
 import yaml
 import subprocess
 import os
@@ -205,8 +206,14 @@ def add_recurring_items_to_pdf(pdf_path, output_path, recurring_items_spans, con
     """Add recurring items to PDF using overlay with pikepdf to preserve links"""
     import pikepdf
     from reportlab.pdfgen import canvas
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
     from io import BytesIO
     from datetime import datetime
+
+    # Register EB Garamond extracted from the template PDF
+    _font_path = Path(__file__).parent / 'eb_garamond.ttf'
+    pdfmetrics.registerFont(TTFont('EBGaramond', str(_font_path)))
 
     # Get configuration
     font_size = config.get('font_size', 36)
@@ -274,10 +281,16 @@ def add_recurring_items_to_pdf(pdf_path, output_path, recurring_items_spans, con
 
     modified_count = 0
 
-    # Process each page that has items
-    for page_num, items in sorted(page_items_map.items()):
+    # Process all date pages
+    for page_num in range(date_pages_start, date_pages_end + 1):
         if page_num > total_pages:
             break
+        items = page_items_map.get(page_num, [])
+
+        # Calculate date and day abbreviation for this page
+        days_from_start = page_num - date_pages_start
+        page_date = datetime(date_pages_year, 1, 1) + timedelta(days=days_from_start)
+        day_abbr = page_date.strftime('%a')  # 'Mon', 'Tue', 'Wed', etc.
 
         page = pdf.pages[page_num - 1]  # Convert to 0-indexed
 
@@ -300,8 +313,14 @@ def add_recurring_items_to_pdf(pdf_path, output_path, recurring_items_spans, con
         x_position = width * 0.55  # Right column
         current_y = height * y_position
 
-        c.setFont("Helvetica", font_size)
         c.setFillColorRGB(0, 0, 0)
+
+        # Draw day-of-week label above items, matching template date heading font
+        c.setFont("EBGaramond", 54)
+        c.drawRightString(width * 0.118, current_y + font_size * 1.57 + 1.5, day_abbr)
+
+        # Restore font for recurring items
+        c.setFont("Helvetica", font_size)
 
         for item in items:
             text = f"• {item}"
@@ -321,13 +340,13 @@ def add_recurring_items_to_pdf(pdf_path, output_path, recurring_items_spans, con
 
         modified_count += 1
         if modified_count % 10 == 0:
-            print(f"  Modified {modified_count} pages so far...")
+            print(f"  Processed {modified_count} pages so far...")
 
     # Save output
     pdf.save(output_path)
     pdf.close()
 
-    print(f"✓ Modified {modified_count} pages (added recurring items)")
+    print(f"✓ Processed {modified_count} date pages (added day labels and recurring items)")
 
 def repackage_rmdoc(extract_dir, doc_uuid, output_path):
     """Repackage the modified document as .rmdoc"""
@@ -367,9 +386,17 @@ def upload_journal(rmdoc_path, target_name):
     return target_name
 
 def main():
+    parser = argparse.ArgumentParser(description='Bullet Journal Updater for reMarkable')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Process PDF only, skip backup and upload, save .rmdoc locally')
+    args = parser.parse_args()
+    dry_run = args.dry_run
+
     print("=" * 60)
     print("Bullet Journal Updater for reMarkable")
     print("=" * 60)
+    if dry_run:
+        print("DRY RUN MODE — no reMarkable interaction")
     print()
 
     # Load config
@@ -388,43 +415,54 @@ def main():
 
     # Create temp directory for work
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Check if source journal exists
-        source_exists = journal_exists(source_name)
-
-        if source_exists:
-            # Create backup (downloads to temp_dir)
-            backup_name = backup_journal(source_name, temp_dir)
-            print()
-
-            # The backup function already downloaded the journal
-            # Find it in temp_dir
-            rmdoc_files = list(Path(temp_dir).glob('*.rmdoc'))
-            if not rmdoc_files:
-                print("Error: No .rmdoc file found after backup")
-                sys.exit(1)
-            rmdoc_path = rmdoc_files[0]
-
-            # Extract
-            extract_dir = Path(temp_dir) / 'extracted'
-            extract_dir.mkdir()
-            doc_uuid = extract_rmdoc(rmdoc_path, extract_dir)
-
-            print(f"Document UUID: {doc_uuid}")
-        else:
-            # First time - no backup needed, create fresh journal
-            print(f"Source journal '{source_name}' not found - creating new journal from template")
+        if dry_run:
+            # Skip all reMarkable interaction — always use first-run path
+            print("Skipping journal check, backup, and upload (dry run)")
             backup_name = None
-
-            # Create extract dir and generate a new UUID
             extract_dir = Path(temp_dir) / 'extracted'
             extract_dir.mkdir()
             doc_uuid = str(uuid.uuid4())
-
-            # Create metadata files for the new journal
             create_metadata_files(extract_dir, doc_uuid)
-
             print(f"Document UUID: {doc_uuid}")
             print()
+        else:
+            # Check if source journal exists
+            source_exists = journal_exists(source_name)
+
+            if source_exists:
+                # Create backup (downloads to temp_dir)
+                backup_name = backup_journal(source_name, temp_dir)
+                print()
+
+                # The backup function already downloaded the journal
+                # Find it in temp_dir
+                rmdoc_files = list(Path(temp_dir).glob('*.rmdoc'))
+                if not rmdoc_files:
+                    print("Error: No .rmdoc file found after backup")
+                    sys.exit(1)
+                rmdoc_path = rmdoc_files[0]
+
+                # Extract
+                extract_dir = Path(temp_dir) / 'extracted'
+                extract_dir.mkdir()
+                doc_uuid = extract_rmdoc(rmdoc_path, extract_dir)
+
+                print(f"Document UUID: {doc_uuid}")
+            else:
+                # First time - no backup needed, create fresh journal
+                print(f"Source journal '{source_name}' not found - creating new journal from template")
+                backup_name = None
+
+                # Create extract dir and generate a new UUID
+                extract_dir = Path(temp_dir) / 'extracted'
+                extract_dir.mkdir()
+                doc_uuid = str(uuid.uuid4())
+
+                # Create metadata files for the new journal
+                create_metadata_files(extract_dir, doc_uuid)
+
+                print(f"Document UUID: {doc_uuid}")
+                print()
 
         # Base PDF template is required
         base_pdf_template = config.get('base_pdf_template')
@@ -466,19 +504,30 @@ def main():
         output_rmdoc = Path(temp_dir) / f"{target_name}.rmdoc"
         repackage_rmdoc(extract_dir, new_uuid, output_rmdoc)
 
-        # Upload as target name
-        upload_journal(output_rmdoc, target_name)
+        if dry_run:
+            dry_run_path = Path.cwd() / 'dry_run_output.rmdoc'
+            shutil.copy(output_rmdoc, dry_run_path)
+            print(f"✓ Dry run complete. Output saved to: {dry_run_path}")
+            print("  No backup created, no upload performed.")
+        else:
+            # Upload as target name
+            upload_journal(output_rmdoc, target_name)
 
     print()
     print("=" * 60)
-    print("✓ Journal updated successfully!")
-    if backup_name:
-        print(f"✓ Source: {source_name}")
-        print(f"✓ Updated: {target_name}")
-        print(f"✓ Backup saved as: {backup_name}")
+    if dry_run:
+        print("✓ Dry run complete!")
+        print(f"  Output: {Path.cwd() / 'dry_run_output.rmdoc'}")
+        print("  Extract the .rmdoc as a ZIP to inspect the PDF.")
     else:
-        print(f"✓ Created new journal: {target_name}")
-        print("✓ (No backup created - this was the first run)")
+        print("✓ Journal updated successfully!")
+        if backup_name:
+            print(f"✓ Source: {source_name}")
+            print(f"✓ Updated: {target_name}")
+            print(f"✓ Backup saved as: {backup_name}")
+        else:
+            print(f"✓ Created new journal: {target_name}")
+            print("✓ (No backup created - this was the first run)")
     print("=" * 60)
 
 if __name__ == '__main__':
