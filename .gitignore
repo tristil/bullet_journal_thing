@@ -9,9 +9,8 @@ config.yml
 *.content
 *.pagedata
 
-# Temporary and backup directories
-*/
-!.git/
+# BMAD generated output
+_bmad-output/
 
 # Python
 __pycache__/
