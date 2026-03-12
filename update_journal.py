@@ -78,6 +78,10 @@ def backup_journal(source_name, temp_dir):
 
     print(f"Creating backup: {backup_name}")
 
+    # Refresh cloud state before downloading
+    print("Refreshing cloud state...")
+    run_command('rmapi refresh')
+
     # Download the source journal
     original_dir = os.getcwd()
     os.chdir(temp_dir)
@@ -137,7 +141,7 @@ def backup_journal(source_name, temp_dir):
 
     print(f"✓ Backup created: {backup_name}")
     print(f"  (Note: Backup saved to root folder due to rmapi limitations)")
-    return backup_name
+    return backup_name, backup_file
 
 def download_journal(source_name, temp_dir):
     """Download the source journal to temp directory"""
@@ -442,16 +446,8 @@ def main():
 
             if source_exists:
                 # Create backup (downloads to temp_dir)
-                backup_name = backup_journal(source_name, temp_dir)
+                backup_name, rmdoc_path = backup_journal(source_name, temp_dir)
                 print()
-
-                # The backup function already downloaded the journal
-                # Find it in temp_dir
-                rmdoc_files = list(Path(temp_dir).glob('*.rmdoc'))
-                if not rmdoc_files:
-                    print("Error: No .rmdoc file found after backup")
-                    sys.exit(1)
-                rmdoc_path = rmdoc_files[0]
 
                 # Extract
                 extract_dir = Path(temp_dir) / 'extracted'
@@ -459,6 +455,52 @@ def main():
                 doc_uuid = extract_rmdoc(rmdoc_path, extract_dir)
 
                 print(f"Document UUID: {doc_uuid}")
+
+                # Count annotation files and find most recent annotated date
+                annotations_dir = extract_dir / doc_uuid
+                if annotations_dir.exists():
+                    rm_files = list(annotations_dir.glob('*.rm'))
+                    rm_ids = {f.stem for f in rm_files}
+
+                    # Read .content to map page UUIDs to indices
+                    content_path = extract_dir / f"{doc_uuid}.content"
+                    latest_date_str = None
+                    if content_path.exists():
+                        import json as _json
+                        with open(content_path) as _f:
+                            content_data = _json.load(_f)
+                        page_list = content_data.get('cPages', {}).get('pages', [])
+                        page_ids = [p['id'] for p in page_list]
+
+                        date_pages_start = config.get('date_pages_start', 144)
+                        date_pages_year = config.get('date_pages_year', datetime.now().year)
+                        base_date = datetime(date_pages_year, 1, 1)
+
+                        latest_page_num = -1
+                        for rm_id in rm_ids:
+                            if rm_id in page_ids:
+                                # page_ids.index() is 0-based; add 1 for 1-based page number
+                                page_num = page_ids.index(rm_id) + 1
+                                if page_num >= date_pages_start and page_num > latest_page_num:
+                                    latest_page_num = page_num
+
+                        if latest_page_num >= date_pages_start:
+                            from datetime import timedelta
+                            latest_date = base_date + timedelta(days=latest_page_num - date_pages_start)
+                            latest_date_str = latest_date.strftime('%b %d, %Y')
+
+                    msg = f"Found {len(rm_files)} annotation file(s) in downloaded journal"
+                    if latest_date_str:
+                        msg += f" (latest: {latest_date_str})"
+                    print(msg)
+                else:
+                    rm_files = []
+                    print("No annotation files found in downloaded journal")
+
+                confirm = input("Continue with update? [y/N] ").strip().lower()
+                if confirm != 'y':
+                    print("Aborted by user.")
+                    sys.exit(0)
             else:
                 # First time - no backup needed, create fresh journal
                 print(f"Source journal '{source_name}' not found - creating new journal from template")
